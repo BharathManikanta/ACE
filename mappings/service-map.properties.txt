@@ -1,0 +1,2 @@
+CommitRestAPI=sb-esb-commit-transaction-t24
+cashAdvanceAPI=sb-esb-cashadvance-t24

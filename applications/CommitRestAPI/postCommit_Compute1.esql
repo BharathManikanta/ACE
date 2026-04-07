@@ -1,0 +1,93 @@
+PATH com.standardBank.common;
+CREATE COMPUTE MODULE postCommit_Compute1
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+
+		CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+
+		DECLARE ccidRef, encodeRef INTEGER;
+		SET ccidRef = InputRoot.Properties.CodedCharSetId;
+		SET encodeRef = InputRoot.Properties.Encoding;
+		DECLARE inRef REFERENCE TO InputRoot.XMLNSC;
+		DECLARE application_name CHARACTER ApplicationLabel;
+		DECLARE created_On TIMESTAMP CURRENT_TIMESTAMP;
+
+		CREATE FIELD Environment.Variables.Values;
+		DECLARE envRef REFERENCE TO Environment.Variables.Values;
+
+
+		SET Environment.logType = 'HOST_RES :';
+		SET Environment.payload = CAST(ASBITSTREAM (inRef)AS CHARACTER CCSID ccidRef ENCODING encodeRef);
+
+
+		IF envRef.Dbloggingflag = 'Y' THEN
+			CALL DB_LOGGING_PROC(created_On, application_name, application_name, OutputRoot, Environment);
+		END IF;
+
+		IF envRef.Consolelogflag = 'Y' THEN
+			LOG EVENT VALUES('HOST_RES: ', Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On,BrokerName,ExecutionGroupLabel,NodeLabel);
+		END IF;
+		-- Following Lines of Code is to Transform Host Response in SOAP Format to Channel Response in JSON Format
+		DECLARE inrefRes REFERENCE TO InputRoot.XMLNSC.*:Envelope.*:Body.*:SBGenericTransferandPaymentsResponse.Status;
+		DECLARE inrefBody REFERENCE TO InputRoot.XMLNSC.*:Envelope.*:Body.*:SBGenericTransferandPaymentsResponse;
+		DECLARE fundTransType REFERENCE TO InputRoot.XMLNSC.*:Envelope.*:Body.*:SBGenericTransferandPaymentsResponse.*:FUNDSTRANSFERType;
+
+		SET OutputRoot.HTTPResponseHeader.messageId = Environment.messageId;
+		CREATE LASTCHILD OF OutputRoot.JSON.Data NAME 'data';
+		DECLARE outref REFERENCE TO OutputRoot.JSON.Data.data;
+
+		IF inrefRes.successIndicator = 'T24Error' THEN
+			SET outref.transactionId = inrefRes.transactionId;
+			SET outref.messageId = inrefRes.messageId;
+			SET outref.successIndicator = inrefRes.successIndicator;
+			SET outref.application = inrefRes.application;
+			SET outref.messages = FIELDVALUE(inrefRes.*[3]);
+			SET Environment.logType = 'APP_RES';
+			SET Environment.payload = CAST(ASBITSTREAM (outref)AS CHARACTER CCSID Environment.ccidRef ENCODING Environment.encodeRef);
+			IF Environment.Variables.Values.Dbloggingflag = 'Y' THEN
+				CALL ERROR_LOGGING_PROC(created_On, application_name, MessageFlowLabel, OutputRoot, Environment);
+			END IF;
+			IF envRef.Consolelogflag = 'Y' THEN
+				LOG EVENT VALUES('APP_RES: ', Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On,BrokerName,ExecutionGroupLabel,NodeLabel);
+			END IF;
+
+		ELSE
+			SET OutputRoot.JSON.Data.statusCode = InputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code";
+			SET OutputRoot.JSON.Data.message = 'Operation performed successfully';
+			SET outref.clientTransactionId = fundTransType.*:id;
+			SET outref.transactionType = fundTransType.*:TRANSACTIONTYPE;
+			SET outref.account = fundTransType.*:CHARGESACCTNO;
+			SET outref.creditCardAccount = fundTransType.*:CREDITACCTNO;
+			SET outref.valueDate = fundTransType.*:REQUESTDATE;
+			SET outref.processedAt = fundTransType.*:REQUESTDATE;
+			SET outref.amount = fundTransType.*:CREDITAMOUNT;
+			SET outref.currency = fundTransType.*:CREDITCURRENCY;
+			SET outref.channel = fundTransType.*:SBCHANNEL;
+
+			SET Environment.payload =CAST(ASBITSTREAM (OutputRoot.JSON.Data)AS CHARACTER CCSID ccidRef ENCODING encodeRef);
+			SET Environment.logType = 'APP_RES :';
+
+
+			IF envRef.Dbloggingflag = 'Y' THEN
+				CALL DB_LOGGING_PROC(created_On, application_name, application_name, OutputRoot, Environment);
+			END IF;
+
+			IF envRef.Consolelogflag = 'Y' THEN
+				LOG EVENT VALUES('APP_RES: ', Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On,BrokerName,ExecutionGroupLabel,NodeLabel);
+			END IF;
+		END IF;
+
+		CREATE FIELD OutputRoot.HTTPResponseHeader;
+		DECLARE resHeders REFERENCE TO OutputRoot.HTTPResponseHeader;
+		SET resHeders."X-Request-Id" = Environment."X-Request-Id";
+		SET resHeders.servicecode = Environment.servicecode;
+		SET resHeders.channelname = Environment.channelname;
+		SET resHeders.Dbloggingflag = envRef.Dbloggingflag;
+		SET resHeders.Consolelogflag = envRef.Consolelogflag;
+
+	END;
+END MODULE;

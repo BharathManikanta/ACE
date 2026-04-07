@@ -1,0 +1,111 @@
+BROKER SCHEMA com.standardBank.common
+--DECLARE RoutingDetails SHARED ROW;
+
+CREATE COMPUTE MODULE common_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		-- CALL CopyMessageHeaders();
+		 CALL CopyEntireMessage();
+		RETURN TRUE;
+	END;
+
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+	--	SET OutputRoot = InputRoot;
+	END;
+END MODULE;
+
+CREATE PROCEDURE AUDIT_PROCEDURE(IN MSG_ID CHARACTER, IN CREATED_ON TIMESTAMP, IN PAYLOAD CHARACTER, IN PAYLOAD_TYPE CHARACTER, IN PAYLOAD_FLOW CHARACTER) 
+LANGUAGE DATABASE
+EXTERNAL NAME "AUDIT_LOGS";
+
+CREATE PROCEDURE DB_LOGGING_PROC(IN CREATED_ON TIMESTAMP, IN application_name CHARACTER, IN logger_name CHARACTER, IN OutputRoot REFERENCE, IN Environment REFERENCE)
+BEGIN
+	DECLARE CONTINUE HANDLER FOR SQLSTATE LIKE '%' BEGIN END;
+	--CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+	--SET OutputRoot.XMLNSC.DBLogging.id = Environment.id;
+			/*SET OutputRoot.XMLNSC.DBLogging.created_On = CREATED_ON;
+			SET OutputRoot.XMLNSC.DBLogging.payload = Environment.payload;
+			SET OutputRoot.XMLNSC.DBLogging.application_name = application_name;
+			SET OutputRoot.XMLNSC.DBLogging.reqType = Environment.logType;
+			SET OutputRoot.XMLNSC.DBLogging.flowName = Environment.flowName;
+			SET OutputRoot.XMLNSC.DBLogging.srvCode = Environment.servicecode;*/
+			INSERT INTO Database.AUDIT_LOGGING VALUES(Environment."X-Request-Id", CREATED_ON, Environment.payload, Environment.logType, application_name, Environment.flowName, Environment.servicecode);
+			--PROPAGATE TO TERMINAL 'out1';
+			SET Environment.XMLNSC.Top.WHILE.mySQLCODE = SQLCODE;
+			SET Environment.XMLNSC.Top.WHILE.mySQLSTATE = SQLSTATE;
+			SET Environment.XMLNSC.Top.WHILE.mySQLNATIVEERROR = SQLNATIVEERROR;
+			SET Environment.XMLNSC.Top.WHILE.mySQLERRORTEXT = SQLERRORTEXT;
+			THROW USER EXCEPTION VALUES( -1, '%', 42, 'error text' );
+END;
+
+CREATE PROCEDURE ERROR_LOGGING_PROC(IN CREATED_ON TIMESTAMP, IN application_name CHARACTER, IN logger_name CHARACTER, IN OutputRoot REFERENCE, IN Environment REFERENCE)
+BEGIN
+	/*CREATE LASTCHILD OF OutputRoot DOMAIN 'JSON';
+	CREATE FIELD OutputRoot.JSON.Data;
+	DECLARE outRef REFERENCE TO OutputRoot.JSON.Data;
+	
+	SET OutputRoot.JSON.Data.error.id = Environment.id;
+		SET OutputRoot.JSON.Data.error.created_On = created_On;
+		SET OutputRoot.JSON.Data.error.payload = Environment.errorRes;--Environment.dataa ||', '||actualExcp;
+		SET OutputRoot.JSON.Data.error.application_name = application_name;
+		SET OutputRoot.JSON.Data.error.reqType = excpType;
+		SET OutputRoot.JSON.Data.error.flowName = flowName;
+		SET OutputRoot.JSON.Data.error.serviceCode = Environment.servicecode;*/
+		DECLARE CONTINUE HANDLER FOR SQLSTATE LIKE '%' BEGIN END;
+		--DECLARE excType CHARACTER COALESCE(Environment.excpType, 'Destination Application is not up and running');
+		DECLARE excType CHARACTER COALESCE(Environment.excpType, '');
+		IF excType = '' OR excType <> 0 OR LENGTH(excType) = 0 THEN
+			IF CONTAINS(Environment.payload, 'T24Error') THEN
+				SET excType = 'T24Error';
+			END IF;
+		END IF;
+		
+	       /* SET outRef.error.id = Environment.id;
+			SET outRef.error.created_On = CREATED_ON;
+			SET outRef.error.payload = Environment.payload;
+			SET outRef.error.application_name = application_name;
+			SET outRef.error.reqType = COALESCE(Environment.excpType, 'Destination Application is not up and running');
+			SET outRef.error.errorRes = Environment.errorRes;
+			SET outRef.error.srvCode = Environment.servicecode;
+			SET outRef.error.flowName = logger_name; Environment.id*/
+			INSERT INTO Database.ERROR_LOGGING VALUES(Environment."X-Request-Id", CREATED_ON, Environment.payload, excType, application_name, Environment.errorRes, logger_name, Environment.servicecode);
+			--PROPAGATE TO TERMINAL 'out1';
+			SET Environment.XMLNSC.Top.WHILE.mySQLCODE = SQLCODE;
+			SET Environment.XMLNSC.Top.WHILE.mySQLSTATE = SQLSTATE;
+			SET Environment.XMLNSC.Top.WHILE.mySQLNATIVEERROR = SQLNATIVEERROR;
+			SET Environment.XMLNSC.Top.WHILE.mySQLERRORTEXT = SQLERRORTEXT;
+			THROW USER EXCEPTION VALUES( -1, '%', 42, 'error text' );
+END;
+
+	
+	
+CREATE PROCEDURE Error_Logging (IN id CHARACTER, IN created_On TIMESTAMP, IN mesage CHARACTER, IN msgtype CHARACTER, IN appname CHARACTER, IN actualExcpText CHARACTER)
+LANGUAGE DATABASE
+EXTERNAL NAME "ERROR_LOG";
+
+
+CREATE PROCEDURE eventLog(IN messageId CHARACTER,
+						  IN created_On TIMESTAMP,
+						  IN logPointName CHARACTER,
+						  IN brokerName CHARACTER,
+						  IN executionGroupLabel CHARACTER,
+						  IN applicationLabel CHARACTER,
+						  IN messageFlowLabel CHARACTER,
+						  IN nodeLabel CHARACTER,
+						  IN payload CHARACTER)
+BEGIN
+	log EVENT values('MessageID : '||messageId, 
+					 'LogTime : '||CAST(created_On AS CHARACTER),
+					 'LogPointName : '||logPointName,
+					 'BrokerName : '||brokerName,
+					 'ExecutionGroupName : '||executionGroupLabel,
+					 'ApplicationName : '||applicationLabel,
+					 'MessageFlowName : '||messageFlowLabel,
+					 'NodeName : '||nodeLabel,
+					 'MessageData : '||payload);
+END;
+CREATE FUNCTION getPolicyProperty( IN policyName CHARACTER, IN propertyName CHARACTER )
+  RETURNS CHARACTER
+  LANGUAGE JAVA
+  EXTERNAL NAME "userDefinedPolicy.MyPolicyAccessClass.getPolicyProperty";

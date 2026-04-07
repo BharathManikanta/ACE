@@ -1,0 +1,38 @@
+apiVersion: appconnect.ibm.com/v1beta1
+kind: IntegrationServer
+metadata:
+  name: eidiko
+  namespace: tekton-pipeline
+spec:
+  enableMetrics: true
+  env:
+    - name: ODBCINI
+      value: /home/aceuser/ace-server/odbc.ini
+    - name: LD_LIBRARY_PATH
+      value: /opt/ibm/ace-12/server/ODBC/dsdriver/odbc_cli/clidriver/lib
+    - name: IE02_PATH
+      value: /opt/ibm/ace-12/ie02
+  license:
+    accept: true
+    license: L-XRNH-47FJAW
+    use: CloudPakForIntegrationNonProduction
+  pod:
+    containers:
+      runtime:
+        resources:
+          limits:
+            cpu: 300m
+            memory: 368Mi
+          requests:
+            cpu: 300m
+            memory: 368Mi
+  adminServerSecure: true
+  router:
+    timeout: 120s
+  designerFlowsOperationMode: disabled
+  createDashboardUsers: true
+  service:
+    endpointType: http
+  version: 12.0.12-r12
+  replicas: 1
+  barURL: ApplicationURL,CommonLibraryURL,ExceptionHandlerURL

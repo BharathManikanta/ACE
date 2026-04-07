@@ -1,0 +1,267 @@
+
+
+
+
+
+
+
+
+
+
+
+PATH com.standardBank.common;
+
+DECLARE soapenv NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
+DECLARE cms NAMESPACE 'http://temenos.com/CMS-SERVICES';
+DECLARE fun NAMESPACE 'http://temenos.com/FUNDSTRANSFERSBMPAYMENTAPI100';
+
+DECLARE LBUSINESSIND,LSOURCETYPE EXTERNAL CHARACTER;
+/*
+ModuleName : processRequest_cash_advance_Compute
+Created On : 10-July-2024
+Version : 1.0
+Author : Padma Maggari
+Description : A Module is to Log Channel Request, Host Request logpoints and Transform Message Format
+of a Channel Request to Message Format of T24 Service i.e. JSON to XMLNSC
+*/
+
+CREATE COMPUTE MODULE processRequest_cash_advance_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE created_On TIMESTAMP CURRENT_TIMESTAMP;
+		DECLARE headerRef REFERENCE TO InputRoot.HTTPInputHeader;
+		DECLARE encodeRef REFERENCE TO InputRoot.Properties.Encoding;
+		DECLARE ccidRef REFERENCE TO InputRoot.Properties.CodedCharSetId;
+		DECLARE application_name CHARACTER ApplicationLabel;
+		DECLARE inRef REFERENCE TO InputRoot.JSON.Data;
+		-- following field transactionType is used when json response is framming
+		SET Environment.transactionType = inRef.transactionType;
+		SET Environment.logType = 'APP_REQ';
+		SET Environment.flowName = application_name;
+		SET Environment.CONSOLELOGFLAG = headerRef.Consolelogflag;
+		SET Environment.DBLOGGINGFLAG = headerRef.Dbloggingflag;
+		SET Environment.servicecode = headerRef.Servicecode;
+		SET Environment."X-Request-Id" = headerRef."X-Request-Id";
+		SET Environment.encodeRef= encodeRef;
+		SET Environment.ccidRef= ccidRef;
+		DECLARE logData CHARACTER CAST(ASBITSTREAM(InputRoot.JSON.Data CCSID Environment.ccidRef
+		ENCODING Environment.encodeRef)
+		AS CHARACTER CCSID Environment.ccidRef
+		ENCODING Environment.encodeRef);
+		SET Environment.payload = logData;
+		IF Environment.CONSOLELOGFLAG = 'Y' THEN
+			LOG EVENT VALUES(Environment.logType, Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On);
+		END IF;
+
+		IF Environment.DBLOGGINGFLAG = 'Y' THEN
+			CALL DB_LOGGING_PROC(created_On,application_name,Environment.logType,OutputRoot, Environment);
+		END IF;
+		-- Following Lines of Code is to Transform Channel Request in JSON Format to Host Reqest in XML Format
+		CREATE FIELD OutputRoot;
+		CREATE LASTCHILD OF OutputRoot DOMAIN('XMLNSC');
+
+		DECLARE outRef REFERENCE TO OutputRoot.XMLNSC;
+		SET outRef.soapenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:soapenv = soapenv;
+		SET outRef.soapenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:cms = cms;
+		SET outRef.soapenv:Envelope.(XMLNSC.NamespaceDecl)xmlns:fun = fun;
+
+		SET outRef.soapenv:Envelope.soapenv:Header = '';
+
+		IF headerRef.Servicecode = 'processAmtOnCashAdv' THEN
+			CREATE LASTCHILD OF outRef.soapenv:Envelope.soapenv:Body NAME 'cms:SBGenericTransferandPayments';
+		ELSEIF headerRef.Servicecode = 'valAmtOnCashAdv' THEN
+			CREATE LASTCHILD OF outRef.soapenv:Envelope.soapenv:Body NAME 'cms:SBGenericTransferandPayments_Validate';
+		END IF;
+
+		CREATE LASTCHILD OF outRef.soapenv:Envelope.soapenv:Body.*[>] NAME 'WebRequestCommon';
+		CREATE LASTCHILD OF outRef.soapenv:Envelope.soapenv:Body.*[>] NAME 'OfsFunction';
+		CREATE LASTCHILD OF outRef.soapenv:Envelope.soapenv:Body.*[>] NAME 'FUNDSTRANSFERSBMPAYMENTAPI100Type';
+
+		DECLARE webReqRef REFERENCE TO outRef.soapenv:Envelope.soapenv:Body.*[>].WebRequestCommon;
+		DECLARE funTrPmtRef REFERENCE TO outRef.soapenv:Envelope.soapenv:Body.*[>].FUNDSTRANSFERSBMPAYMENTAPI100Type;
+
+		SET outRef.soapenv:Envelope.soapenv:Body.*[>].OfsFunction = '';
+
+		CALL getPolicyProperty('{userDefined}:userDefinedPolicy','COMPANY') INTO webReqRef.company;
+		CALL getPolicyProperty('{userDefined}:userDefinedPolicy','PASSWORD') INTO webReqRef.password;
+		CALL getPolicyProperty('{userDefined}:userDefinedPolicy','USERNAME') INTO webReqRef.userName;
+
+		SET funTrPmtRef.(XMLNSC.Attribute)id = '';
+		-- SET funTrPmtRef.fun:TRANSACTIONTYPE = inRef.transactionType;
+		SET funTrPmtRef.fun:DEBITAMOUNT = inRef.amount;
+		SET funTrPmtRef.fun:DEBITTHEIRREF = 'Cash Advance';
+		SET funTrPmtRef.fun:CREDITACCTNO = inRef.creditAccount;
+		SET funTrPmtRef.fun:gPAYMENTDETAILS.(XMLNSC.Attribute)g = '1';
+		SET funTrPmtRef.fun:gPAYMENTDETAILS.fun:PAYMENTDETAILS = inRef.creditCardAccount;
+		SET funTrPmtRef.fun:SBCHANNEL = inRef.channel;
+		SET funTrPmtRef.fun:NETTXNID = inRef.clientTransactionId;
+		SET funTrPmtRef.fun:REQUESTDATE = inRef.requestDate;
+		SET funTrPmtRef.fun:NETUSERNAME = inRef.username;
+		SET funTrPmtRef.fun:LSOURCETYPE = LSOURCETYPE;
+		SET funTrPmtRef.fun:LBUSINESSIND = LBUSINESSIND;
+
+		SET logData = CAST(ASBITSTREAM(OutputRoot.XMLNSC CCSID Environment.ccidRef
+		ENCODING Environment.encodeRef)
+		AS CHARACTER CCSID Environment.ccidRef
+		ENCODING Environment.encodeRef);
+
+		SET Environment.payload = logData;
+		SET Environment.logType = 'HOST_REQ';
+
+		IF Environment.CONSOLELOGFLAG = 'Y' THEN
+			LOG EVENT VALUES(Environment.logType, Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On);
+		END IF;
+
+		IF Environment.DBLOGGINGFLAG = 'Y' THEN
+			CALL DB_LOGGING_PROC(created_On,application_name,Environment.logType,OutputRoot, Environment);
+		END IF;
+
+		SET Environment.XMLNSC = NULL;
+
+		CALL getPolicyProperty('{userDefined}:userDefinedPolicy','T24_URL') INTO OutputLocalEnvironment.Destination.HTTP.RequestURL;
+	END;
+END MODULE;
+/*
+ModuleName : processResponse_cash_advance_Compute
+Created On : 10-July-2024
+Version : 1.0
+Author : Padma Maggari
+Description : A Module is to Log Channel Request, Host Request logpoints and Transform Message Format
+of a Channel Request to Message Format of T24 Service i.e. JSON to XMLNSC
+*/
+
+CREATE COMPUTE MODULE processResponse_cash_advance_Compute
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		DECLARE created_On TIMESTAMP CURRENT_TIMESTAMP;
+		DECLARE application_name CHARACTER ApplicationLabel;
+		DECLARE inRef REFERENCE TO InputRoot.XMLNSC.*:Envelope.*:Body.*[<];
+		DECLARE fundsTransferTypeRef REFERENCE TO InputRoot.XMLNSC.*:Envelope.*:Body.*[<].FUNDSTRANSFERType;
+		DECLARE logData CHARACTER CAST(ASBITSTREAM(InputRoot.*[<] CCSID Environment.ccidRef
+		ENCODING Environment.encodeRef)
+		AS CHARACTER CCSID Environment.ccidRef
+		ENCODING Environment.encodeRef);
+		SET Environment.payload = logData;
+		SET Environment.logType = 'HOST_RES';
+
+		IF Environment.CONSOLELOGFLAG = 'Y' THEN
+			LOG EVENT VALUES(Environment.logType, Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On);
+		END IF;
+
+		IF Environment.DBLOGGINGFLAG = 'Y' THEN
+			CALL DB_LOGGING_PROC(created_On,application_name,Environment.logType,OutputRoot, Environment);
+		END IF;
+		-- Following Lines of Code is to Transform Host Response in XML Format to Channel Response in JSON Format
+		CREATE FIELD OutputRoot;
+		CREATE LASTCHILD OF OutputRoot DOMAIN('JSON');
+		CREATE FIELD OutputRoot.JSON.Data;
+		DECLARE outRef REFERENCE TO OutputRoot.JSON.Data;
+
+		IF inRef.Status.successIndicator = 'Success' THEN
+
+			IF fundsTransferTypeRef.*:RECORDSTATUS='INAO' THEN
+				SET OutputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code" = 412;
+				SET outRef.statusCode = 412;
+				SET outRef.timestamp=CURRENT_TIMESTAMP;
+				SET outRef.title='PRECONDITION FAILED';
+				SET outRef.details='We were unable to proceed with your request as some preconditions were not met';
+				SET outRef.status='UNAUTHORIZED';
+				SET outRef.transactionId=inRef.Status.transactionId;
+				SET outRef.path=COALESCE(Environment.path, InputLocalEnvironment.REST.Input.Path);
+				SET Environment.errorRes = outRef.details;
+				
+				IF Environment.DBLOGGINGFLAG = 'Y'THEN
+					CALL ERROR_LOGGING_PROC(created_On, application_name, MessageFlowLabel, OutputRoot, Environment);
+				END IF;
+			ELSE
+				SET outRef.statusCode = 200;
+				SET outRef.message = 'Operation performed successfully';
+
+				SET outRef.data.transactionId = inRef.Status.transactionId;
+				SET outRef.data.clientTransactionId = fundsTransferTypeRef.*:NETTXNID;
+				SET outRef.data.transactionType = Environment.transactionType;
+				SET outRef.data.creditAccount = fundsTransferTypeRef.*:CREDITACCTNO;
+				SET outRef.data.amount = fundsTransferTypeRef.*:DEBITAMOUNT;
+				SET outRef.data.creditCardAccount = fundsTransferTypeRef.*:gPAYMENTDETAILS.*:PAYMENTDETAILS;
+				SET outRef.data.valueDate = fundsTransferTypeRef.*:DEBITVALUEDATE;
+				SET outRef.data.requestDate = fundsTransferTypeRef.*:REQUESTDATE;
+				SET outRef.data.currency = fundsTransferTypeRef.*:DEBITCURRENCY;
+				SET outRef.data.channel = fundsTransferTypeRef.*:SBCHANNEL;
+				SET outRef.data.username = fundsTransferTypeRef.*:NETUSERNAME;
+				SET outRef.data.description = fundsTransferTypeRef.*:DEBITTHEIRREF;
+
+				SET logData = CAST(ASBITSTREAM(OutputRoot.JSON CCSID Environment.ccidRef
+				ENCODING Environment.encodeRef)
+				AS CHARACTER CCSID Environment.ccidRef
+				ENCODING Environment.encodeRef);
+
+				SET Environment.payload = logData;
+				SET Environment.logType = 'APP_RES';
+
+				IF Environment.DBLOGGINGFLAG = 'Y'THEN
+					CALL DB_LOGGING_PROC(created_On, application_name, Environment.flowName, OutputRoot, Environment);
+				END IF;
+
+				IF Environment.CONSOLELOGFLAG = 'Y' THEN
+					LOG EVENT VALUES('APP_RES: ', Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On,BrokerName,ExecutionGroupLabel,NodeLabel);
+				END IF;
+			END IF;
+
+
+		ELSEIF CONTAINS(inRef.Status.messages, 'DUPLICATE') THEN
+			IF CONTAINS(inRef.Status.messages, 'ERROR') OR CONTAINS(inRef.Status.messages, 'PENDING') THEN
+				SET OutputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code" = 422;
+				SET outRef.statusCode = 422; --InputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code";
+				SET outRef.timestamp = CURRENT_TIMESTAMP;
+				SET outRef.title = 'Unprocessable Content'; --inBodyRef.successIndicator;
+				-- SET outRef.requestId = Environment."X-Request-Id";
+				SET outRef.details = 'Unfortunately, we are not able to proceed with this request.';
+				SET outRef.status = 'Error';
+				SET outRef.path = COALESCE(Environment.path, InputLocalEnvironment.REST.Input.Path);
+			ELSEIF CONTAINS(inRef.Status.messages, 'PROCESSED') THEN
+				SET OutputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code" = 422;
+				SET outRef.statusCode = 422; --InputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code";
+				SET outRef.timestamp = CURRENT_TIMESTAMP;
+				SET outRef.title = 'Unprocessable Content'; --inBodyRef.successIndicator;
+				-- SET outRef.requestId = Environment."X-Request-Id";
+				SET outRef.details = 'A transaction with a similar identifier has already been processed';
+				SET outRef.status = 'PROCESSED';
+				SET outRef.path = COALESCE(Environment.path, InputLocalEnvironment.REST.Input.Path);
+			ELSEIF CONTAINS(inRef.Status.messages, 'INAO') OR CONTAINS(inRef.Status.messages, 'INAU') THEN
+				SET OutputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code" = 412;
+				SET outRef.statusCode = 412; --InputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code";
+				SET outRef.timestamp = CURRENT_TIMESTAMP;
+				SET outRef.title ='PRECONDITION FAILED';
+				SET outRef.details='We were unable to proceed with your request as some preconditions were not met';
+				SET outRef.status='UNAUTHORIZED';
+				SET outRef.transactionId=inRef.Status.transactionId;
+				SET outRef.path=COALESCE(Environment.path, InputLocalEnvironment.REST.Input.Path);
+			END IF;
+
+			SET Environment.errorRes = outRef.details;
+			IF Environment.DBLOGGINGFLAG = 'Y'THEN
+				CALL ERROR_LOGGING_PROC(created_On, application_name, MessageFlowLabel, OutputRoot, Environment);
+			END IF;
+		ELSE
+			SET OutputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code" = 500;
+			SET outRef.statusCode = 500; --InputRoot.HTTPResponseHeader."X-Original-HTTP-Status-Code";
+			SET outRef.timestamp = CURRENT_TIMESTAMP;
+			SET outRef.path = COALESCE(Environment.path, InputLocalEnvironment.REST.Input.Path);
+			SET outRef.requestId = Environment."X-Request-Id";
+			SET outRef.servicecode = Environment.servicecode;
+			SET outRef.title = inRef.Status.successIndicator;
+			SET outRef.details = 'Unfortunately, an internal server error prevented us from proceeding with your request. Try again later.';
+			SET Environment.errorRes = outRef.details;
+			IF Environment.DBLOGGINGFLAG = 'Y'THEN
+				CALL ERROR_LOGGING_PROC(created_On, application_name, MessageFlowLabel, OutputRoot, Environment);
+			END IF;
+		END IF;
+
+
+		SET OutputRoot.HTTPResponseHeader."X-Request-Id" = Environment."X-Request-Id";
+		SET OutputRoot.HTTPResponseHeader.servicecode = Environment.servicecode;
+		SET OutputRoot.HTTPResponseHeader.Consolelogflag = Environment.CONSOLELOGFLAG;
+		SET OutputRoot.HTTPResponseHeader.Dbloggingflag = Environment.DBLOGGINGFLAG;
+
+	END;
+END MODULE;
