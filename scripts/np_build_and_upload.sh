@@ -3,15 +3,12 @@ set -e
 
 echo "===== ACE BUILD STARTED ====="
 
-# Workspace (Tekton runs inside this path)
 WORKSPACE=$(pwd)
 echo "Workspace: $WORKSPACE"
 
-# Generate build number (Tekton doesn't have CI_PIPELINE_IID)
 BUILD_NUMBER=$(date +%s)
 echo "BUILD_NUMBER=$BUILD_NUMBER" > .env
 
-# Project name (can also pass as param)
 CI_PROJECT_NAME="ace-app"
 
 echo "Build Number: $BUILD_NUMBER"
@@ -21,20 +18,20 @@ echo "Build Number: $BUILD_NUMBER"
 # -------------------------------
 echo "Detecting changed files..."
 
-CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD | \
-  awk '!/^\.(gitlab-ci|gitlab-cd|gitlab-prod-cd|gitlab-dr-cd)\.yml$/')
+CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
 
+echo "All changed files:"
 echo "$CHANGED_FILES"
 
-# Extract services
-echo "$CHANGED_FILES" | awk -F'/' '{print $1}' | sort | uniq > .changed_services
+# ✅ Extract ONLY applications/<service>
+echo "$CHANGED_FILES" | grep '^applications/' | awk -F'/' '{print $2}' | sort | uniq > .changed_services
 
-echo "Changed services:"
+echo "Filtered changed services:"
 cat .changed_services || true
 
-# Exit if no changes
+# ✅ Exit if no application changes
 if [ ! -s .changed_services ]; then
-  echo "No changes detected. Exiting build."
+  echo "No application changes detected. Skipping build."
   exit 0
 fi
 
@@ -43,7 +40,6 @@ fi
 # -------------------------------
 mkdir -p bar
 
-# Timestamp
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 echo "TIMESTAMP=$TIMESTAMP" >> .env
 
@@ -54,22 +50,26 @@ echo "===== BUILDING BAR FILES ====="
 
 while read service; do
 
+  # skip empty lines
+  [ -z "$service" ] && continue
+
   echo "-----------------------------------"
   echo "Processing service: $service"
-
-  # Skip libraries (optional logic)
-  if [[ "$service" == "CommonLibrary" || "$service" == "Exception_Handler" ]]; then
-    echo "Skipping standalone BAR for library: $service"
-    continue
-  fi
 
   echo "Building BAR for $service..."
 
   ibmint package \
     --input-path . \
+    --project applications/$service \
     --output-bar-file bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar
 
   BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+
+  # ✅ Check BAR exists before upload
+  if [ ! -f "$BAR_FILE" ]; then
+    echo "ERROR: BAR file not created for $service"
+    exit 1
+  fi
 
   echo "BAR created: $BAR_FILE"
 
@@ -98,9 +98,7 @@ done < .changed_services
 
 echo "===== BUILD COMPLETED ====="
 
-# Show generated files
 ls -l bar/
 
-# Save artifacts (used by deploy step)
 cp .env "$WORKSPACE" || true
 cp .changed_services "$WORKSPACE" || true
