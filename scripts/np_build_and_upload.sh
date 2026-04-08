@@ -14,11 +14,17 @@ CI_PROJECT_NAME="ace-app"
 echo "Build Number: $BUILD_NUMBER"
 
 # -------------------------------
+# 🔧 Ensure full git history
+# -------------------------------
+echo "Fetching full git history..."
+git fetch --unshallow || true
+git fetch --all || true
+
+# -------------------------------
 # 🔍 Detect changed files
 # -------------------------------
 echo "Detecting changed files..."
 
-# ✅ Handle first commit / CI shallow clone cases
 if git rev-parse HEAD~1 >/dev/null 2>&1; then
   CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
 else
@@ -29,7 +35,9 @@ fi
 echo "All changed files:"
 echo "$CHANGED_FILES"
 
-# ✅ Extract ONLY applications/<service>
+# -------------------------------
+# 🎯 Extract only applications
+# -------------------------------
 echo "$CHANGED_FILES" \
   | grep '^applications/' \
   | awk -F'/' 'NF>1 {print $2}' \
@@ -39,7 +47,9 @@ echo "$CHANGED_FILES" \
 echo "Filtered changed services:"
 cat .changed_services || true
 
-# ✅ Exit if no valid application changes
+# -------------------------------
+# ❌ Exit if no changes
+# -------------------------------
 if ! grep -q '[^[:space:]]' .changed_services; then
   echo "No application changes detected. Skipping build."
   exit 0
@@ -66,11 +76,15 @@ echo "===== BUILDING BAR FILES ====="
 
 while read service; do
 
-  # skip empty lines
   [ -z "$service" ] && continue
 
   echo "-----------------------------------"
   echo "Processing service: $service"
+
+  if [ ! -d "applications/$service" ]; then
+    echo "Skipping: applications/$service not found"
+    continue
+  fi
 
   echo "Building BAR for $service..."
 
@@ -81,7 +95,6 @@ while read service; do
 
   BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
-  # ✅ Check BAR exists before upload
   if [ ! -f "$BAR_FILE" ]; then
     echo "ERROR: BAR file not created for $service"
     exit 1
@@ -94,19 +107,15 @@ while read service; do
   # -------------------------------
   echo "Uploading $service to Nexus..."
 
-  curl -f -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+  curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
     "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
-  echo "Uploading latest-$TIMESTAMP..."
-
-  curl -f -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+  curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
     "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
 
-  echo "Uploading latest..."
-
-  curl -f -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+  curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
     "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest.bar"
 
