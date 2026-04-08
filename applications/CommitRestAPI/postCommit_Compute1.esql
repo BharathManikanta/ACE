@@ -74,7 +74,7 @@ CREATE COMPUTE MODULE postCommit_Compute1
 
 			IF envRef.Dbloggingflag = 'Y' THEN
 				CALL DB_LOGGING_PROC(created_On, application_name, application_name, OutputRoot, Environment);
-			END IF;
+			END IF; 
 
 			IF envRef.Consolelogflag = 'Y' THEN
 				LOG EVENT VALUES('APP_RES: ', Environment.payload, application_name, MessageFlowLabel, Environment."X-Request-Id", created_On,BrokerName,ExecutionGroupLabel,NodeLabel);
