@@ -18,22 +18,38 @@ echo "Build Number: $BUILD_NUMBER"
 # -------------------------------
 echo "Detecting changed files..."
 
-CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+# ✅ Handle first commit / CI shallow clone cases
+if git rev-parse HEAD~1 >/dev/null 2>&1; then
+  CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+else
+  echo "No previous commit found, using full repo"
+  CHANGED_FILES=$(git ls-files)
+fi
 
 echo "All changed files:"
 echo "$CHANGED_FILES"
 
 # ✅ Extract ONLY applications/<service>
-echo "$CHANGED_FILES" | grep '^applications/' | awk -F'/' '{print $2}' | sort | uniq > .changed_services
+echo "$CHANGED_FILES" \
+  | grep '^applications/' \
+  | awk -F'/' 'NF>1 {print $2}' \
+  | sort -u \
+  | grep -v '^$' > .changed_services
 
 echo "Filtered changed services:"
 cat .changed_services || true
 
-# ✅ Exit if no application changes
-if [ ! -s .changed_services ]; then
+# ✅ Exit if no valid application changes
+if ! grep -q '[^[:space:]]' .changed_services; then
   echo "No application changes detected. Skipping build."
   exit 0
 fi
+
+echo "Detected services:"
+while read service; do
+  [ -z "$service" ] && continue
+  echo "→ $service"
+done < .changed_services
 
 # -------------------------------
 # 📦 Prepare BAR folder
@@ -78,19 +94,19 @@ while read service; do
   # -------------------------------
   echo "Uploading $service to Nexus..."
 
-  curl -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+  curl -f -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
     "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
   echo "Uploading latest-$TIMESTAMP..."
 
-  curl -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+  curl -f -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
     "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
 
   echo "Uploading latest..."
 
-  curl -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+  curl -f -v -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
     "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest.bar"
 
