@@ -1,3 +1,4 @@
+```bash
 #!/bin/bash
 set -e
 
@@ -14,11 +15,16 @@ CI_PROJECT_NAME="ace-app"
 echo "Build Number: $BUILD_NUMBER"
 
 # -------------------------------
+# 🔧 Fix SSL issue (temporary)
+# -------------------------------
+git config --global http.sslVerify false
+
+# -------------------------------
 # 🔧 Ensure full git history
 # -------------------------------
 echo "Fetching full git history..."
-git fetch --unshallow || true
-git fetch --all || true
+git fetch --unshallow 2>/dev/null || true
+git fetch --all 2>/dev/null || true
 
 # -------------------------------
 # 🔍 Detect changed files
@@ -86,11 +92,17 @@ while read service; do
     continue
   fi
 
+  # ✅ Validate ACE project
+  if [ ! -f "applications/$service/.project" ]; then
+    echo "ERROR: $service is not a valid ACE project (.project missing)"
+    exit 1
+  fi
+
   echo "Building BAR for $service..."
 
   ibmint package \
-    --input-path . \
-    --project applications/$service \
+    --input-path applications \
+    --project $service \
     --output-bar-file bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar
 
   BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
@@ -125,5 +137,9 @@ echo "===== BUILD COMPLETED ====="
 
 ls -l bar/
 
+# -------------------------------
+# 📄 Persist artifacts
+# -------------------------------
 cp .env "$WORKSPACE" || true
 cp .changed_services "$WORKSPACE" || true
+```
