@@ -65,6 +65,6 @@ python3 send_email.py \
   --service_name "${SERVICE_LIST}" \
   --build_number "${CI_PIPELINE_IID}" \
   --build_time "${CI_PIPELINE_CREATED_AT}" \
-  --recipient "bharathmanikanta.gundapu@gmail.com"
+  --recipient "bharathmanikanta.gundapu@eidiko.com"
 
 echo "===== EMAIL NOTIFICATION COMPLETED ====="
