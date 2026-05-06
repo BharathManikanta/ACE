@@ -63,7 +63,6 @@ if __name__ == '__main__':
     )
 
     parser.add_argument('--name', required=True)
-    parser.add_argument('--status', required=True)
     parser.add_argument('--service_name', required=True)
     parser.add_argument('--build_number', required=True)
     parser.add_argument('--build_time', required=True)
