@@ -12,7 +12,7 @@ CREATE COMPUTE MODULE postCommit_Compute1
 		DECLARE ccidRef, encodeRef INTEGER;  
 		SET ccidRef = InputRoot.Properties.CodedCharSetId;
 		SET encodeRef = InputRoot.Properties.Encoding;
-		DECLARE inRef REFERENCE TO InputRoot.XMLNSC;  
+		DECLARE inRef REFERENCE TO InputRoot.XMLNSC;   
 		DECLARE application_name CHARACTER ApplicationLabel;
 		DECLARE created_On TIMESTAMP CURRENT_TIMESTAMP;
 
