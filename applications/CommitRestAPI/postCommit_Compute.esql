@@ -7,7 +7,6 @@ Description : A Module is to Log Channel Request, Host Request logpoints and Tra
 of a Channel Request to Message Format of T24 Service i.e. JSON to XMLNSC    
 */
 
-
 PATH com.standardBank.common;
 DECLARE soapenv NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
 DECLARE cms NAMESPACE 'http://temenos.com/CMS-SERVICES';
