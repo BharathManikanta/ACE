@@ -47,21 +47,7 @@
     <p>
         The build job for
         <strong>{{ service_name }}</strong>
-        has completed with status:
-
-        {% if status == 'Succeeded' %}
-            <span class="success">SUCCESS</span>
-
-        {% elif status == 'Failed' %}
-            <span class="failed">FAILED</span>
-
-        {% elif status == 'Cancelled' %}
-            <span class="cancelled">CANCELLED</span>
-
-        {% else %}
-            <strong>{{ status }}</strong>
-
-        {% endif %}
+        has completed successfully:
 
     </p>
 
