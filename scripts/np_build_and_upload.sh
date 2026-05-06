@@ -7,17 +7,32 @@ WORKSPACE=$(pwd)
 echo "Workspace: $WORKSPACE"
 
 BUILD_NUMBER=$(date +%s)
-echo "BUILD_NUMBER=$BUILD_NUMBER" > .env
+TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
-CI_PROJECT_NAME="ace-app"
+echo "BUILD_NUMBER=$BUILD_NUMBER" > .env
+echo "TIMESTAMP=$TIMESTAMP" >> .env
+
+CI_PROJECT_NAME="ace-pipeline"
 
 echo "Build Number: $BUILD_NUMBER"
+
+# -------------------------------
+# 🔧 Git configuration
+# -------------------------------
+echo "Configuring git..."
+
+# Disable SSL verification only for CI/internal runners
+git config --global http.sslVerify false || true
 
 # -------------------------------
 # 🔧 Ensure full git history
 # -------------------------------
 echo "Fetching full git history..."
-git fetch --unshallow || true
+
+if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+  git fetch --unshallow || true
+fi
+
 git fetch --all || true
 
 # -------------------------------
@@ -36,7 +51,7 @@ echo "All changed files:"
 echo "$CHANGED_FILES"
 
 # -------------------------------
-# 🎯 Extract only applications
+# 🎯 Extract changed applications
 # -------------------------------
 echo "$CHANGED_FILES" \
   | grep '^applications/' \
@@ -56,7 +71,7 @@ if ! grep -q '[^[:space:]]' .changed_services; then
 fi
 
 echo "Detected services:"
-while read service; do
+while read -r service; do
   [ -z "$service" ] && continue
   echo "→ $service"
 done < .changed_services
@@ -66,15 +81,12 @@ done < .changed_services
 # -------------------------------
 mkdir -p bar
 
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
-echo "TIMESTAMP=$TIMESTAMP" >> .env
-
 # -------------------------------
 # 🔨 Build BAR files
 # -------------------------------
 echo "===== BUILDING BAR FILES ====="
 
-while read service; do
+while read -r service; do
 
   [ -z "$service" ] && continue
 
@@ -88,42 +100,63 @@ while read service; do
 
   echo "Building BAR for $service..."
 
+  # =========================================================
+  # IMPORTANT:
+  # --input-path should point to workspace containing projects
+  # --project should be ONLY the ACE project name
+  # =========================================================
+
   ibmint package \
-    --input-path . \
-    --project applications/$service \
-    --output-bar-file bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar
+    --input-path applications \
+    --project "$service" \
+    --output-bar-file "bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
   BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
+  # -------------------------------
+  # ✅ Validate BAR creation
+  # -------------------------------
   if [ ! -f "$BAR_FILE" ]; then
     echo "ERROR: BAR file not created for $service"
     exit 1
   fi
 
-  echo "BAR created: $BAR_FILE"
+  echo "BAR created successfully:"
+  ls -lh "$BAR_FILE"
 
   # -------------------------------
   # 📤 Upload to Nexus
   # -------------------------------
-  echo "Uploading $service to Nexus..."
+  echo "Uploading $service BAR to Nexus..."
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
+    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest.bar"
+    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest.bar"
+
+  echo "Upload completed for $service"
 
 done < .changed_services
 
+# -------------------------------
+# ✅ Build completed
+# -------------------------------
 echo "===== BUILD COMPLETED ====="
 
-ls -l bar/
+echo "Generated BAR files:"
+ls -lh bar/
 
-cp .env "$WORKSPACE" || true
-cp .changed_services "$WORKSPACE" || true
+# -------------------------------
+# 📄 Persist artifacts
+# -------------------------------
+cp .env "$WORKSPACE/" || true
+cp .changed_services "$WORKSPACE/" || true
+
+echo "===== SCRIPT FINISHED SUCCESSFULLY ====="
