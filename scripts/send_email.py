@@ -83,8 +83,7 @@ if __name__ == '__main__':
 
     subject = (
         f'{clean_service_name} '
-        f'CP4I Job Notification - '
-        f'{args.status}'
+        f'CP4I Job Notification'
     )
 
     send_email(
