@@ -1,6 +1,7 @@
 <html>
 <head>
     <style>
+
         body {
             font-family: Arial, sans-serif;
             line-height: 1.5;
@@ -13,6 +14,11 @@
 
         .failed {
             color: red;
+            font-weight: bold;
+        }
+
+        .cancelled {
+            color: orange;
             font-weight: bold;
         }
 
@@ -30,6 +36,7 @@
             background-color: #f2f2f2;
             text-align: left;
         }
+
     </style>
 </head>
 
@@ -42,16 +49,26 @@
         <strong>{{ service_name }}</strong>
         has completed with status:
 
-        {% if status == 'SUCCESS' %}
-            <span class="success">{{ status }}</span>
+        {% if status == 'Succeeded' %}
+            <span class="success">SUCCESS</span>
+
+        {% elif status == 'Failed' %}
+            <span class="failed">FAILED</span>
+
+        {% elif status == 'Cancelled' %}
+            <span class="cancelled">CANCELLED</span>
+
         {% else %}
-            <span class="failed">{{ status }}</span>
+            <strong>{{ status }}</strong>
+
         {% endif %}
+
     </p>
 
     <h3>Build Details</h3>
 
     <table>
+
         <tr>
             <th>Build Number</th>
             <td>{{ build_number }}</td>
@@ -66,6 +83,7 @@
             <th>Services/Libraries</th>
             <td>{{ service_name }}</td>
         </tr>
+
     </table>
 
     <br>
