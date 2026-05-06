@@ -102,8 +102,8 @@ while read service; do
 
   ibmint package \
     --input-path applications \
-    --project $service \
-    --output-bar-file bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar
+    --project "$service" \
+    --output-bar-file "bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
   BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
@@ -121,25 +121,20 @@ while read service; do
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
+    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest.bar"
+    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest.bar"
 
 done < .changed_services
 
 echo "===== BUILD COMPLETED ====="
 
+echo "Generated BAR files:"
 ls -l bar/
-
-# -------------------------------
-# 📄 Persist artifacts
-# -------------------------------
-cp .env "$WORKSPACE" || true
-cp .changed_services "$WORKSPACE" || true
 ```
