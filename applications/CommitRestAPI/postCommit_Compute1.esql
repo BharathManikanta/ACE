@@ -7,7 +7,7 @@ CREATE COMPUTE MODULE postCommit_Compute1
 		RETURN TRUE;
 	END;
 
-	CREATE PROCEDURE CopyEntireMessage() BEGIN
+	CREATE PROCEDURE CopyEntireMessage() BEGIN  
 
 		DECLARE ccidRef, encodeRef INTEGER;
 		SET ccidRef = InputRoot.Properties.CodedCharSetId;
