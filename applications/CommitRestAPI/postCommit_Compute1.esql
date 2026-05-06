@@ -9,7 +9,7 @@ CREATE COMPUTE MODULE postCommit_Compute1
 
 	CREATE PROCEDURE CopyEntireMessage() BEGIN  
 
-		DECLARE ccidRef, encodeRef INTEGER;
+		DECLARE ccidRef, encodeRef INTEGER;  
 		SET ccidRef = InputRoot.Properties.CodedCharSetId;
 		SET encodeRef = InputRoot.Properties.Encoding;
 		DECLARE inRef REFERENCE TO InputRoot.XMLNSC;
