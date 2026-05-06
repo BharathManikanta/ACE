@@ -16,7 +16,6 @@ def generate_email_content(args):
 
     data = {
         'name': args.name,
-        'status': args.status,
         'service_name': args.service_name,
         'build_number': args.build_number,
         'build_time': args.build_time
