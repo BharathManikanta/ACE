@@ -1,6 +1,6 @@
 PATH com.standardBank.common;
 CREATE COMPUTE MODULE postCommit_Compute1
-	CREATE FUNCTION Main() RETURNS BOOLEAN  
+	CREATE FUNCTION Main() RETURNS BOOLEAN    
 	BEGIN
  
 		CALL CopyEntireMessage();
