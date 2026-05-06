@@ -1,4 +1,3 @@
-```bash
 #!/bin/bash
 set -e
 
@@ -15,16 +14,11 @@ CI_PROJECT_NAME="ace-app"
 echo "Build Number: $BUILD_NUMBER"
 
 # -------------------------------
-# 🔧 Fix SSL issue (temporary)
-# -------------------------------
-git config --global http.sslVerify false
-
-# -------------------------------
 # 🔧 Ensure full git history
 # -------------------------------
 echo "Fetching full git history..."
-git fetch --unshallow 2>/dev/null || true
-git fetch --all 2>/dev/null || true
+git fetch --unshallow || true
+git fetch --all || true
 
 # -------------------------------
 # 🔍 Detect changed files
@@ -92,18 +86,12 @@ while read service; do
     continue
   fi
 
-  # ✅ Validate ACE project
-  if [ ! -f "applications/$service/.project" ]; then
-    echo "ERROR: $service is not a valid ACE project (.project missing)"
-    exit 1
-  fi
-
   echo "Building BAR for $service..."
 
   ibmint package \
-    --input-path applications \
-    --project "$service" \
-    --output-bar-file "bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+    --input-path . \
+    --project applications/$service \
+    --output-bar-file bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar
 
   BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
@@ -121,20 +109,21 @@ while read service; do
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
+    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$BAR_FILE" \
-    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest.bar"
+    "$NEXUS_REPOSITORY/${CI_PROJECT_NAME}-${service}-latest.bar"
 
 done < .changed_services
 
 echo "===== BUILD COMPLETED ====="
 
-echo "Generated BAR files:"
 ls -l bar/
-```
+
+cp .env "$WORKSPACE" || true
+cp .changed_services "$WORKSPACE" || true
