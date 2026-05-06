@@ -4,6 +4,7 @@ set -e
 echo "===== ACE BUILD STARTED ====="
 
 WORKSPACE=$(pwd)
+
 echo "Workspace: $WORKSPACE"
 
 BUILD_NUMBER=$(date +%s)
@@ -16,17 +17,18 @@ CI_PROJECT_NAME="ace-pipeline"
 
 echo "Build Number: $BUILD_NUMBER"
 
-# -------------------------------
-# 🔧 Git configuration
-# -------------------------------
+# =====================================================
+# Git Configuration
+# =====================================================
+
 echo "Configuring git..."
 
-# Disable SSL verification only for CI/internal runners
 git config --global http.sslVerify false || true
 
-# -------------------------------
-# 🔧 Ensure full git history
-# -------------------------------
+# =====================================================
+# Ensure Full Git History
+# =====================================================
+
 echo "Fetching full git history..."
 
 if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
@@ -35,9 +37,10 @@ fi
 
 git fetch --all || true
 
-# -------------------------------
-# 🔍 Detect changed files
-# -------------------------------
+# =====================================================
+# Detect Changed Files
+# =====================================================
+
 echo "Detecting changed files..."
 
 if git rev-parse HEAD~1 >/dev/null 2>&1; then
@@ -50,40 +53,54 @@ fi
 echo "All changed files:"
 echo "$CHANGED_FILES"
 
-# -------------------------------
-# 🎯 Extract changed applications
-# -------------------------------
+# =====================================================
+# Detect Changed Applications & Libraries
+# =====================================================
+
+echo "Detecting changed applications/libraries..."
+
 echo "$CHANGED_FILES" \
-  | grep '^applications/' \
+  | grep -E '^(applications|libraries)/' \
   | awk -F'/' 'NF>1 {print $2}' \
   | sort -u \
   | grep -v '^$' > .changed_services
 
-echo "Filtered changed services:"
+echo "Detected components:"
 cat .changed_services || true
 
-# -------------------------------
-# ❌ Exit if no changes
-# -------------------------------
+# =====================================================
+# Exit if No Relevant Changes
+# =====================================================
+
 if ! grep -q '[^[:space:]]' .changed_services; then
-  echo "No application changes detected. Skipping build."
+  echo "No application/library changes detected."
   exit 0
 fi
 
-echo "Detected services:"
+# =====================================================
+# Display Detected Components
+# =====================================================
+
+echo "Detected services/libraries:"
+
 while read -r service; do
+
   [ -z "$service" ] && continue
+
   echo "→ $service"
+
 done < .changed_services
 
-# -------------------------------
-# 📦 Prepare BAR folder
-# -------------------------------
+# =====================================================
+# Prepare BAR Folder
+# =====================================================
+
 mkdir -p bar
 
-# -------------------------------
-# 🔨 Build BAR files
-# -------------------------------
+# =====================================================
+# Build BAR Files
+# =====================================================
+
 echo "===== BUILDING BAR FILES ====="
 
 while read -r service; do
@@ -91,72 +108,88 @@ while read -r service; do
   [ -z "$service" ] && continue
 
   echo "-----------------------------------"
-  echo "Processing service: $service"
+  echo "Processing component: $service"
+
+  # ===================================================
+  # Skip if application folder does not exist
+  # ===================================================
 
   if [ ! -d "applications/$service" ]; then
-    echo "Skipping: applications/$service not found"
+    echo "Skipping non-application component: $service"
     continue
   fi
 
   echo "Building BAR for $service..."
 
-  # =========================================================
-  # IMPORTANT:
-  # --input-path should point to workspace containing projects
-  # --project should be ONLY the ACE project name
-  # =========================================================
+  VERSION_BAR="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+  TIMESTAMP_BAR="bar/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
+  LATEST_BAR="bar/${CI_PROJECT_NAME}-${service}-latest.bar"
+
+  # ===================================================
+  # Build BAR
+  # ===================================================
 
   ibmint package \
     --input-path applications \
     --project "$service" \
-    --output-bar-file "bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+    --output-bar-file "$VERSION_BAR"
 
-  BAR_FILE="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+  # ===================================================
+  # Validate BAR
+  # ===================================================
 
-  # -------------------------------
-  # ✅ Validate BAR creation
-  # -------------------------------
-  if [ ! -f "$BAR_FILE" ]; then
+  if [ ! -f "$VERSION_BAR" ]; then
     echo "ERROR: BAR file not created for $service"
     exit 1
   fi
 
-  echo "BAR created successfully:"
-  ls -lh "$BAR_FILE"
+  # ===================================================
+  # Create Latest Copies
+  # ===================================================
 
-  # -------------------------------
-  # 📤 Upload to Nexus
-  # -------------------------------
-  echo "Uploading $service BAR to Nexus..."
+  cp "$VERSION_BAR" "$TIMESTAMP_BAR"
+  cp "$VERSION_BAR" "$LATEST_BAR"
+
+  echo "BAR files created:"
+
+  ls -lh "$VERSION_BAR"
+  ls -lh "$TIMESTAMP_BAR"
+  ls -lh "$LATEST_BAR"
+
+  # ===================================================
+  # Upload to Nexus
+  # ===================================================
+
+  echo "Uploading BAR files to Nexus..."
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
-    --upload-file "$BAR_FILE" \
-    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
+    --upload-file "$VERSION_BAR" \
+    "${NEXUS_REPOSITORY}/$(basename "$VERSION_BAR")"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
-    --upload-file "$BAR_FILE" \
-    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
+    --upload-file "$TIMESTAMP_BAR" \
+    "${NEXUS_REPOSITORY}/$(basename "$TIMESTAMP_BAR")"
 
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
-    --upload-file "$BAR_FILE" \
-    "${NEXUS_REPOSITORY}/${CI_PROJECT_NAME}-${service}-latest.bar"
+    --upload-file "$LATEST_BAR" \
+    "${NEXUS_REPOSITORY}/$(basename "$LATEST_BAR")"
 
   echo "Upload completed for $service"
 
 done < .changed_services
 
-# -------------------------------
-# ✅ Build completed
-# -------------------------------
+# =====================================================
+# Build Completed
+# =====================================================
+
 echo "===== BUILD COMPLETED ====="
 
 echo "Generated BAR files:"
 ls -lh bar/
 
-# -------------------------------
-# 📄 Persist artifacts
-# -------------------------------
-cp .env "$WORKSPACE/" || true
-cp .changed_services "$WORKSPACE/" || true
+echo "Changed services/libraries:"
+cat .changed_services || true
+
+echo "Artifacts already available in shared workspace."
 
 echo "===== SCRIPT FINISHED SUCCESSFULLY ====="
