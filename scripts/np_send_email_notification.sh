@@ -61,7 +61,6 @@ pip3 install jinja2
 
 python3 send_email.py \
   --name "Bharath" \
-  --status "${CI_JOB_STATUS}" \
   --service_name "${SERVICE_LIST}" \
   --build_number "${CI_PIPELINE_IID}" \
   --build_time "${CI_PIPELINE_CREATED_AT}" \
