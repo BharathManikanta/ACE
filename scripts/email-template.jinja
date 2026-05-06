@@ -1,0 +1,79 @@
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.5;
+        }
+
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+
+        .failed {
+            color: red;
+            font-weight: bold;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 60%;
+        }
+
+        table, th, td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+
+    <p>Hello {{ name }},</p>
+
+    <p>
+        The build job for
+        <strong>{{ service_name }}</strong>
+        has completed with status:
+
+        {% if status == 'SUCCESS' %}
+            <span class="success">{{ status }}</span>
+        {% else %}
+            <span class="failed">{{ status }}</span>
+        {% endif %}
+    </p>
+
+    <h3>Build Details</h3>
+
+    <table>
+        <tr>
+            <th>Build Number</th>
+            <td>{{ build_number }}</td>
+        </tr>
+
+        <tr>
+            <th>Build Time</th>
+            <td>{{ build_time }}</td>
+        </tr>
+
+        <tr>
+            <th>Services/Libraries</th>
+            <td>{{ service_name }}</td>
+        </tr>
+    </table>
+
+    <br>
+
+    <p>
+        Thanks & Regards,<br>
+        DevOps Team
+    </p>
+
+</body>
+</html>
