@@ -3,33 +3,31 @@ set -e
 
 echo "===== ACE BUILD STARTED ====="
 
+WORKSPACE=$(pwd)
+
+echo "Workspace: $WORKSPACE"
+
 # =====================================================
-# TEST FAILURE SCENARIO
+# CREATE .changed_services FILE
+# =====================================================
+
+echo "Creating changed services file..."
+
+echo "CommitRestAPI" > .changed_services
+
+echo "Contents of .changed_services:"
+
+cat .changed_services
+
+# =====================================================
+# FORCE BUILD FAILURE
 # =====================================================
 
 echo "===== TESTING FAILED PIPELINE STATUS ====="
 
-echo "Forcing build failure intentionally..."
+echo "Build failed intentionally for testing..."
+
+# IMPORTANT
+# This makes Tekton pipeline status = Failed
 
 exit 1
-
-# =====================================================
-# ORIGINAL BUILD LOGIC BELOW
-# =====================================================
-
-WORKSPACE=$(pwd)
-echo "Workspace: $WORKSPACE"
-
-BUILD_NUMBER=$(date +%s)
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
-
-echo "BUILD_NUMBER=$BUILD_NUMBER" > .env
-echo "TIMESTAMP=$TIMESTAMP" >> .env
-
-CI_PROJECT_NAME="ace-app"
-
-echo "Build Number: $BUILD_NUMBER"
-
-mkdir -p bar
-
-echo "===== BUILD COMPLETED ====="
