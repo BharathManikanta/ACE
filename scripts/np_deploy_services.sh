@@ -46,8 +46,10 @@ cat "$CHANGED_SERVICES_FILE"
 
 echo "===== LOGIN TO OPENSHIFT ====="
 
+TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+
 oc login "$SERVER_URL" \
-  --token="$SERVICEACCOUNT_TOKEN" \
+  --token="$TOKEN" \
   --insecure-skip-tls-verify
 
 # =====================================================
