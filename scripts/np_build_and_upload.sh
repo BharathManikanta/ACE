@@ -24,7 +24,6 @@ git config --global http.sslVerify false || true
 
 # =====================================================
 # Detect Changed Files
-# ORIGINAL BUILD LOGIC BELOW
 # =====================================================
 
 echo "Detecting changed files..."
@@ -70,24 +69,16 @@ fi
 echo "Detected services/libraries:"
 
 while read -r service; do
-WORKSPACE=$(pwd)
-echo "Workspace: $WORKSPACE"
 
   [ -z "$service" ] && continue
-BUILD_NUMBER=$(date +%s)
-TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
   echo "→ $service"
-echo "BUILD_NUMBER=$BUILD_NUMBER" > .env
-echo "TIMESTAMP=$TIMESTAMP" >> .env
 
 done < .changed_services
-CI_PROJECT_NAME="ace-app"
 
 # =====================================================
 # Prepare BAR Folder
 # =====================================================
-echo "Build Number: $BUILD_NUMBER"
 
 mkdir -p bar
 
@@ -104,29 +95,61 @@ while read -r service; do
   echo "-----------------------------------"
   echo "Processing component: $service"
 
+  APP_PATH=""
+  LIB_PATH=""
+
   # ===================================================
-  # Skip if application folder does not exist
+  # Detect Component Type
   # ===================================================
 
-  if [ ! -d "applications/$service" ]; then
-    echo "Skipping non-application component: $service"
+  if [ -d "applications/$service" ]; then
+
+    APP_PATH="applications"
+    echo "Detected Application: $service"
+
+  elif [ -d "libraries/$service" ]; then
+
+    LIB_PATH="libraries"
+    echo "Detected Library: $service"
+
+  else
+
+    echo "Skipping unknown component: $service"
     continue
-  fi
 
-  echo "Building BAR for $service..."
+  fi
 
   VERSION_BAR="bar/${CI_PROJECT_NAME}-${service}-v${BUILD_NUMBER}.bar"
   TIMESTAMP_BAR="bar/${CI_PROJECT_NAME}-${service}-latest-${TIMESTAMP}.bar"
   LATEST_BAR="bar/${CI_PROJECT_NAME}-${service}-latest.bar"
 
+  echo "Building BAR for $service..."
+
   # ===================================================
-  # Build BAR
+  # Build Application BAR
   # ===================================================
 
-  ibmint package \
-    --input-path applications \
-    --project "$service" \
-    --output-bar-file "$VERSION_BAR"
+  if [ -n "$APP_PATH" ]; then
+
+    ibmint package \
+      --input-path applications \
+      --project "$service" \
+      --output-bar-file "$VERSION_BAR"
+
+  fi
+
+  # ===================================================
+  # Build Library BAR
+  # ===================================================
+
+  if [ -n "$LIB_PATH" ]; then
+
+    ibmint package \
+      --input-path libraries \
+      --project "$service" \
+      --output-bar-file "$VERSION_BAR"
+
+  fi
 
   # ===================================================
   # Validate BAR
