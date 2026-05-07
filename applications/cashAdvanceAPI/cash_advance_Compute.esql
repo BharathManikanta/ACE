@@ -1,5 +1,5 @@
 PATH com.standardBank.common;
-
+  
 DECLARE soapenv NAMESPACE 'http://schemas.xmlsoap.org/soap/envelope/';
 DECLARE cms NAMESPACE 'http://temenos.com/CMS-SERVICES';       
 DECLARE fun NAMESPACE 'http://temenos.com/FUNDSTRANSFERSBMPAYMENTAPI100';                
