@@ -1,7 +1,7 @@
 BROKER SCHEMA Exception_handler
 PATH com.standardBank.common;
 CREATE COMPUTE MODULE Exception_Compute
-    CREATE FUNCTION Main() RETURNS BOOLEAN
+    CREATE FUNCTION Main() RETURNS BOOLEAN 
     BEGIN
         -- CALL CopyMessageHeaders();
         CALL CopyEntireMessage();
