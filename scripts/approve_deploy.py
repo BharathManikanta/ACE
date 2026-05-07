@@ -1,5 +1,6 @@
 from flask import Flask, request
 import requests
+import json
 
 app = Flask(__name__)
 
@@ -32,6 +33,10 @@ def approve():
         }
     }
 
+    # =====================================================
+    # Read ServiceAccount Token
+    # =====================================================
+
     token = open(
         "/var/run/secrets/kubernetes.io/serviceaccount/token"
     ).read()
@@ -41,6 +46,10 @@ def approve():
         "Content-Type": "application/json"
     }
 
+    # =====================================================
+    # Trigger Tekton PipelineRun
+    # =====================================================
+
     response = requests.post(
         "https://kubernetes.default.svc/apis/tekton.dev/v1/namespaces/cp4i/pipelineruns",
         headers=headers,
@@ -48,13 +57,46 @@ def approve():
         json=payload
     )
 
-    print("STATUS:", response.status_code)
-    print("RESPONSE:", response.text)
+    # =====================================================
+    # Debug Logs
+    # =====================================================
 
-    return f"""
-Deployment Triggered Successfully
+    print("=================================")
+    print("PIPELINE RESPONSE STATUS")
+    print(response.status_code)
+    print("=================================")
 
-Status:
+    print("=================================")
+    print("PIPELINE RESPONSE BODY")
+    print(response.text)
+    print("=================================")
+
+    # =====================================================
+    # Success / Failure Response
+    # =====================================================
+
+    if response.status_code in [200, 201, 202]:
+
+        response_json = response.json()
+
+        pipeline_run_name = response_json["metadata"]["name"]
+
+        return f"""
+Deployment Pipeline Triggered Successfully
+
+PipelineRun:
+{pipeline_run_name}
+
+Service:
+{service}
+"""
+
+    else:
+
+        return f"""
+Pipeline Trigger Failed
+
+Status Code:
 {response.status_code}
 
 Response:
