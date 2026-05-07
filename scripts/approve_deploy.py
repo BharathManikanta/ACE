@@ -16,9 +16,19 @@ def approve():
             "namespace": "cp4i"
         },
         "spec": {
+
             "pipelineRef": {
                 "name": "ace-deploy-pipeline"
-            }
+            },
+
+            "workspaces": [
+                {
+                    "name": "shared-workspace",
+                    "persistentVolumeClaim": {
+                        "claimName": "ace-pipeline-pvc"
+                    }
+                }
+            ]
         }
     }
 
@@ -38,7 +48,18 @@ def approve():
         json=payload
     )
 
-    return "Deployment Triggered Successfully"
+    print("STATUS:", response.status_code)
+    print("RESPONSE:", response.text)
+
+    return f"""
+Deployment Triggered Successfully
+
+Status:
+{response.status_code}
+
+Response:
+{response.text}
+"""
 
 
 if __name__ == '__main__':
