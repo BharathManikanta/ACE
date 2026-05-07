@@ -2,7 +2,7 @@ apiVersion: appconnect.ibm.com/v1beta1
 kind: IntegrationServer
 metadata:
   name: eidiko
-  namespace: tekton-pipeline
+  namespace: cp4i
 spec:
   enableMetrics: true
   env:
@@ -33,6 +33,6 @@ spec:
   createDashboardUsers: true
   service:
     endpointType: http
-  version: 12.0.12-r12
+  version: 12.0.12-r11
   replicas: 1
   barURL: ApplicationURL,CommonLibraryURL,ExceptionHandlerURL
