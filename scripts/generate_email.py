@@ -18,7 +18,10 @@ def generate_email_content(args):
         'name': args.name,
         'service_name': args.service_name,
         'build_number': args.build_number,
-        'build_time': args.build_time
+        'build_time': args.build_time,
+
+        # ADD THIS LINE
+        'approval_url': os.getenv("APPROVAL_URL")
     }
 
     return template.render(data)
