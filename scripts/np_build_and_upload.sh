@@ -156,6 +156,11 @@ while read -r service; do
 
   echo "Uploading BAR files to Nexus..."
 
+  echo "===== DEBUG NEXUS ====="
+
+  echo "NEXUS_REPOSITORY=$NEXUS_REPOSITORY"
+  echo "NEXUS_USERNAME=$NEXUS_USERNAME"
+
   curl -f -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
     --upload-file "$VERSION_BAR" \
     "${NEXUS_REPOSITORY}/$(basename "$VERSION_BAR")"
