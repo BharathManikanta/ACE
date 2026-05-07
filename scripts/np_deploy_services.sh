@@ -22,7 +22,7 @@ echo "TIMESTAMP=$TIMESTAMP"
 
 CHANGED_SERVICES_FILE="$WORKSPACE_PATH/.changed_services"
 
-SERVICE_MAP_FILE="$WORKSPACE_PATH/mappings/service-map.properties"
+SERVICE_MAP_FILE="$WORKSPACE_PATH/mappings/service-map.properties.txt"
 
 YAML_PATH="$WORKSPACE_PATH/integration-servers"
 
