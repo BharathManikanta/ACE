@@ -10,7 +10,7 @@ TIMESTAMP=$(date +%Y%m%d%H%M%S)
 echo "BUILD_NUMBER=$BUILD_NUMBER" > .env
 echo "TIMESTAMP=$TIMESTAMP" >> .env
 
-CI_PROJECT_NAME="ace-pipeline"
+CI_PROJECT_NAME="ace-app"
 
 echo "Build Number: $BUILD_NUMBER"
 
