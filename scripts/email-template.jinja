@@ -37,6 +37,16 @@
             text-align: left;
         }
 
+        .approve-btn {
+            background-color: green;
+            color: white !important;
+            padding: 14px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
     </style>
 </head>
 
@@ -48,7 +58,6 @@
         The build job for
         <strong>{{ service_name }}</strong>
         has completed successfully:
-
     </p>
 
     <h3>Build Details</h3>
@@ -72,7 +81,19 @@
 
     </table>
 
-    <br>
+    <br><br>
+
+    <p>
+        Please approve deployment:
+    </p>
+
+    <a
+       href="{{ approval_url }}?service={{ service_name }}"
+       class="approve-btn">
+       APPROVE DEPLOYMENT
+    </a>
+
+    <br><br>
 
     <p>
         Thanks & Regards,<br>
