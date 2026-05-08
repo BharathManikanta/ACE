@@ -48,6 +48,10 @@ echo "===== CHANGED SERVICES ====="
 
 cat "$CHANGED_SERVICES_FILE"
 
+echo "===== SERVICE MAP CONTENT ====="
+
+cat "$SERVICE_MAP_FILE"
+
 echo "===== LOGIN TO OPENSHIFT ====="
 
 TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
@@ -122,11 +126,20 @@ if [ "$DEPLOY_COMMON" = true ]; then
 
     cat "$TEMP_YAML"
 
+    echo "Applying Integration Server..."
+
     oc apply \
       -f "$TEMP_YAML" \
-      -n "$OPENSHIFT_NAMESPACE"
+      -n "$OPENSHIFT_NAMESPACE" || {
 
-    sleep 10
+        echo "ERROR deploying $integration_server"
+
+        continue
+    }
+
+    echo "Deployment submitted for $integration_server"
+
+    sleep 20
 
   done < "$SERVICE_MAP_FILE"
 
@@ -186,11 +199,20 @@ if [ "$DEPLOY_COMMON" = false ]; then
 
     cat "$TEMP_YAML"
 
+    echo "Applying Integration Server..."
+
     oc apply \
       -f "$TEMP_YAML" \
-      -n "$OPENSHIFT_NAMESPACE"
+      -n "$OPENSHIFT_NAMESPACE" || {
 
-    sleep 10
+        echo "ERROR deploying $INTEGRATION_SERVER"
+
+        continue
+    }
+
+    echo "Deployment submitted for $INTEGRATION_SERVER"
+
+    sleep 20
 
   done < "$CHANGED_SERVICES_FILE"
 
