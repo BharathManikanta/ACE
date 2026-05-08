@@ -2,7 +2,7 @@ BROKER SCHEMA com.standardBank.common
 --DECLARE RoutingDetails SHARED ROW;  
 
 CREATE COMPUTE MODULE common_Compute  
-	CREATE FUNCTION Main() RETURNS BOOLEAN     
+	CREATE FUNCTION Main() RETURNS BOOLEAN        
 	BEGIN
 		-- CALL CopyMessageHeaders();  
 		 CALL CopyEntireMessage();
