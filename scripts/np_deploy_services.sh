@@ -26,6 +26,10 @@ SERVICE_MAP_FILE="$WORKSPACE_PATH/mappings/service-map.properties.txt"
 
 YAML_PATH="$WORKSPACE_PATH/integration-servers"
 
+ALL_DEPLOYED_SERVICES="/tmp/all_deployed_services.txt"
+
+rm -f "$ALL_DEPLOYED_SERVICES"
+
 # =====================================================
 # Validate Files
 # =====================================================
@@ -86,8 +90,11 @@ if [ "$DEPLOY_COMMON" = true ]; then
 
     echo "Integration Server: $integration_server"
 
-    cp "$YAML_PATH/generic.yaml" \
-       "$YAML_PATH/generic-modified.yaml"
+    echo "$service" >> "$ALL_DEPLOYED_SERVICES"
+
+    TEMP_YAML="$YAML_PATH/${service}-modified.yaml"
+
+    cp "$YAML_PATH/generic.yaml" "$TEMP_YAML"
 
     APP_BAR="ace-app-${service}-latest.bar"
 
@@ -103,25 +110,23 @@ if [ "$DEPLOY_COMMON" = true ]; then
       EXCEPTION_BAR="ace-app-Exception_Handler-latest.bar"
     fi
 
-    sed -i "s|eidiko|$integration_server|g" \
-      "$YAML_PATH/generic-modified.yaml"
+    sed -i "s|eidiko|$integration_server|g" "$TEMP_YAML"
 
-    sed -i "s|ApplicationURL|$NEXUS_REPOSITORY/$APP_BAR|g" \
-      "$YAML_PATH/generic-modified.yaml"
+    sed -i "s|ApplicationURL|$NEXUS_REPOSITORY/$APP_BAR|g" "$TEMP_YAML"
 
-    sed -i "s|CommonLibraryURL|$NEXUS_REPOSITORY/$COMMON_BAR|g" \
-      "$YAML_PATH/generic-modified.yaml"
+    sed -i "s|CommonLibraryURL|$NEXUS_REPOSITORY/$COMMON_BAR|g" "$TEMP_YAML"
 
-    sed -i "s|ExceptionHandlerURL|$NEXUS_REPOSITORY/$EXCEPTION_BAR|g" \
-      "$YAML_PATH/generic-modified.yaml"
+    sed -i "s|ExceptionHandlerURL|$NEXUS_REPOSITORY/$EXCEPTION_BAR|g" "$TEMP_YAML"
 
     echo "===== MODIFIED YAML ====="
 
-    cat "$YAML_PATH/generic-modified.yaml"
+    cat "$TEMP_YAML"
 
     oc apply \
-      -f "$YAML_PATH/generic-modified.yaml" \
+      -f "$TEMP_YAML" \
       -n "$OPENSHIFT_NAMESPACE"
+
+    sleep 10
 
   done < "$SERVICE_MAP_FILE"
 
@@ -131,60 +136,65 @@ fi
 # Deploy Changed Services
 # =====================================================
 
-echo "===== DEPLOY CHANGED SERVICES ====="
+if [ "$DEPLOY_COMMON" = false ]; then
 
-while read -r service; do
+  echo "===== DEPLOY CHANGED SERVICES ====="
 
-  [ -z "$service" ] && continue
+  while read -r service; do
 
-  if [[ "$service" == "CommonLibrary" || "$service" == "Exception_Handler" ]]; then
-    continue
-  fi
+    [ -z "$service" ] && continue
 
-  echo "----------------------------------"
+    if [[ "$service" == "CommonLibrary" || "$service" == "Exception_Handler" ]]; then
+      continue
+    fi
 
-  echo "Deploying Service: $service"
+    echo "----------------------------------"
 
-  INTEGRATION_SERVER=$(grep "^${service}=" \
-    "$SERVICE_MAP_FILE" | cut -d'=' -f2)
+    echo "Deploying Service: $service"
 
-  if [ -z "$INTEGRATION_SERVER" ]; then
-    echo "No integration server mapping found for $service"
-    continue
-  fi
+    INTEGRATION_SERVER=$(grep "^${service}=" \
+      "$SERVICE_MAP_FILE" | cut -d'=' -f2)
 
-  echo "Integration Server: $INTEGRATION_SERVER"
+    if [ -z "$INTEGRATION_SERVER" ]; then
+      echo "No integration server mapping found for $service"
+      continue
+    fi
 
-  cp "$YAML_PATH/generic.yaml" \
-     "$YAML_PATH/generic-modified.yaml"
+    echo "$service" >> "$ALL_DEPLOYED_SERVICES"
 
-  APP_BAR="ace-app-${service}-v${BUILD_NUMBER}.bar"
+    echo "Integration Server: $INTEGRATION_SERVER"
 
-  COMMON_BAR="ace-app-CommonLibrary-latest.bar"
+    TEMP_YAML="$YAML_PATH/${service}-modified.yaml"
 
-  EXCEPTION_BAR="ace-app-Exception_Handler-latest.bar"
+    cp "$YAML_PATH/generic.yaml" "$TEMP_YAML"
 
-  sed -i "s|eidiko|$INTEGRATION_SERVER|g" \
-    "$YAML_PATH/generic-modified.yaml"
+    APP_BAR="ace-app-${service}-v${BUILD_NUMBER}.bar"
 
-  sed -i "s|ApplicationURL|$NEXUS_REPOSITORY/$APP_BAR|g" \
-    "$YAML_PATH/generic-modified.yaml"
+    COMMON_BAR="ace-app-CommonLibrary-latest.bar"
 
-  sed -i "s|CommonLibraryURL|$NEXUS_REPOSITORY/$COMMON_BAR|g" \
-    "$YAML_PATH/generic-modified.yaml"
+    EXCEPTION_BAR="ace-app-Exception_Handler-latest.bar"
 
-  sed -i "s|ExceptionHandlerURL|$NEXUS_REPOSITORY/$EXCEPTION_BAR|g" \
-    "$YAML_PATH/generic-modified.yaml"
+    sed -i "s|eidiko|$INTEGRATION_SERVER|g" "$TEMP_YAML"
 
-  echo "===== MODIFIED YAML ====="
+    sed -i "s|ApplicationURL|$NEXUS_REPOSITORY/$APP_BAR|g" "$TEMP_YAML"
 
-  cat "$YAML_PATH/generic-modified.yaml"
+    sed -i "s|CommonLibraryURL|$NEXUS_REPOSITORY/$COMMON_BAR|g" "$TEMP_YAML"
 
-  oc apply \
-    -f "$YAML_PATH/generic-modified.yaml" \
-    -n "$OPENSHIFT_NAMESPACE"
+    sed -i "s|ExceptionHandlerURL|$NEXUS_REPOSITORY/$EXCEPTION_BAR|g" "$TEMP_YAML"
 
-done < "$CHANGED_SERVICES_FILE"
+    echo "===== MODIFIED YAML ====="
+
+    cat "$TEMP_YAML"
+
+    oc apply \
+      -f "$TEMP_YAML" \
+      -n "$OPENSHIFT_NAMESPACE"
+
+    sleep 10
+
+  done < "$CHANGED_SERVICES_FILE"
+
+fi
 
 # =====================================================
 # POD STATUS CHECK
@@ -196,10 +206,6 @@ while read -r service; do
 
   [ -z "$service" ] && continue
 
-  if [[ "$service" == "CommonLibrary" || "$service" == "Exception_Handler" ]]; then
-    continue
-  fi
-
   INTEGRATION_SERVER=$(grep "^${service}=" \
     "$SERVICE_MAP_FILE" | cut -d'=' -f2)
 
@@ -208,10 +214,6 @@ while read -r service; do
   fi
 
   echo "Checking Pod: $INTEGRATION_SERVER"
-
-  # ===================================================
-  # Wait for Pod Creation
-  # ===================================================
 
   POD_NAME=""
 
@@ -238,10 +240,6 @@ while read -r service; do
   fi
 
   echo "Pod Name: $POD_NAME"
-
-  # ===================================================
-  # Wait for Running Status
-  # ===================================================
 
   for i in {1..20}; do
 
@@ -280,6 +278,6 @@ while read -r service; do
 
   fi
 
-done < "$CHANGED_SERVICES_FILE"
+done < "$ALL_DEPLOYED_SERVICES"
 
 echo "===== DEPLOYMENT COMPLETED SUCCESSFULLY ====="
