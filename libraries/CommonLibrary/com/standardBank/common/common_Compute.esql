@@ -4,7 +4,7 @@ BROKER SCHEMA com.standardBank.common
 CREATE COMPUTE MODULE common_Compute  
 	CREATE FUNCTION Main() RETURNS BOOLEAN     
 	BEGIN
-		-- CALL CopyMessageHeaders();
+		-- CALL CopyMessageHeaders();  
 		 CALL CopyEntireMessage();
 		RETURN TRUE;
 	END;
