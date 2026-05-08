@@ -90,7 +90,7 @@ if [ "$DEPLOY_COMMON" = true ]; then
 
   echo "===== DEPLOYING ALL SERVICES ====="
 
-  while IFS='=' read -r service integration_server; do
+  while IFS='=' read -r service integration_server || [ -n "$service" ]; do
 
     [ -z "$service" ] && continue
 
@@ -230,7 +230,7 @@ fi
 
 echo "===== CHECKING POD STATUS ====="
 
-while read -r service; do
+while IFS= read -r service || [ -n "$service" ]; do
 
   [ -z "$service" ] && continue
 
