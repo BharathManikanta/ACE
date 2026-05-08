@@ -86,18 +86,10 @@ if [ "$DEPLOY_COMMON" = true ]; then
 
     echo "Integration Server: $integration_server"
 
-    # =================================================
-    # Use Generic YAML
-    # =================================================
-
     cp "$YAML_PATH/generic.yaml" \
        "$YAML_PATH/generic-modified.yaml"
 
     APP_BAR="ace-app-${service}-latest.bar"
-
-    # =================================================
-    # Common Library BAR
-    # =================================================
 
     if grep -q "^CommonLibrary$" "$CHANGED_SERVICES_FILE"; then
       COMMON_BAR="ace-app-CommonLibrary-latest-${TIMESTAMP}.bar"
@@ -105,19 +97,11 @@ if [ "$DEPLOY_COMMON" = true ]; then
       COMMON_BAR="ace-app-CommonLibrary-latest.bar"
     fi
 
-    # =================================================
-    # Exception Handler BAR
-    # =================================================
-
     if grep -q "^Exception_Handler$" "$CHANGED_SERVICES_FILE"; then
       EXCEPTION_BAR="ace-app-Exception_Handler-latest-${TIMESTAMP}.bar"
     else
       EXCEPTION_BAR="ace-app-Exception_Handler-latest.bar"
     fi
-
-    # =================================================
-    # Replace YAML Values
-    # =================================================
 
     sed -i "s|eidiko|$integration_server|g" \
       "$YAML_PATH/generic-modified.yaml"
@@ -134,10 +118,6 @@ if [ "$DEPLOY_COMMON" = true ]; then
     echo "===== MODIFIED YAML ====="
 
     cat "$YAML_PATH/generic-modified.yaml"
-
-    # =================================================
-    # Deploy
-    # =================================================
 
     oc apply \
       -f "$YAML_PATH/generic-modified.yaml" \
@@ -157,7 +137,6 @@ while read -r service; do
 
   [ -z "$service" ] && continue
 
-  # Skip Libraries
   if [[ "$service" == "CommonLibrary" || "$service" == "Exception_Handler" ]]; then
     continue
   fi
@@ -176,26 +155,14 @@ while read -r service; do
 
   echo "Integration Server: $INTEGRATION_SERVER"
 
-  # ===================================================
-  # Use Generic YAML
-  # ===================================================
-
   cp "$YAML_PATH/generic.yaml" \
      "$YAML_PATH/generic-modified.yaml"
-
-  # ===================================================
-  # BAR Names
-  # ===================================================
 
   APP_BAR="ace-app-${service}-v${BUILD_NUMBER}.bar"
 
   COMMON_BAR="ace-app-CommonLibrary-latest.bar"
 
   EXCEPTION_BAR="ace-app-Exception_Handler-latest.bar"
-
-  # ===================================================
-  # Replace YAML Values
-  # ===================================================
 
   sed -i "s|eidiko|$INTEGRATION_SERVER|g" \
     "$YAML_PATH/generic-modified.yaml"
@@ -212,10 +179,6 @@ while read -r service; do
   echo "===== MODIFIED YAML ====="
 
   cat "$YAML_PATH/generic-modified.yaml"
-
-  # ===================================================
-  # Deploy
-  # ===================================================
 
   oc apply \
     -f "$YAML_PATH/generic-modified.yaml" \
@@ -246,23 +209,46 @@ while read -r service; do
 
   echo "Checking Pod: $INTEGRATION_SERVER"
 
-  POD_NAME=$(oc get pods \
-    -n "$OPENSHIFT_NAMESPACE" \
-    -l app.kubernetes.io/name="$INTEGRATION_SERVER" \
-    -o jsonpath='{.items[0].metadata.name}')
+  # ===================================================
+  # Wait for Pod Creation
+  # ===================================================
+
+  POD_NAME=""
+
+  for i in {1..10}; do
+
+    POD_NAME=$(oc get pods \
+      -n "$OPENSHIFT_NAMESPACE" \
+      -l app.kubernetes.io/name="$INTEGRATION_SERVER" \
+      -o jsonpath='{.items[0].metadata.name}' \
+      2>/dev/null || true)
+
+    if [ -n "$POD_NAME" ]; then
+      break
+    fi
+
+    echo "Waiting for pod creation..."
+    sleep 15
+
+  done
 
   if [ -z "$POD_NAME" ]; then
-    echo "No pod found."
-    continue
+    echo "No pod found for $INTEGRATION_SERVER"
+    exit 1
   fi
 
   echo "Pod Name: $POD_NAME"
 
-  for i in {1..10}; do
+  # ===================================================
+  # Wait for Running Status
+  # ===================================================
+
+  for i in {1..20}; do
 
     STATUS=$(oc get pod "$POD_NAME" \
       -n "$OPENSHIFT_NAMESPACE" \
-      -o jsonpath='{.status.phase}')
+      -o jsonpath='{.status.phase}' \
+      2>/dev/null || true)
 
     echo "Current Status: $STATUS"
 
@@ -277,8 +263,21 @@ while read -r service; do
   done
 
   if [ "$STATUS" != "Running" ]; then
+
     echo "Pod failed to reach Running state."
+
+    echo "===== POD DETAILS ====="
+
+    oc describe pod "$POD_NAME" \
+      -n "$OPENSHIFT_NAMESPACE" || true
+
+    echo "===== POD LOGS ====="
+
+    oc logs "$POD_NAME" \
+      -n "$OPENSHIFT_NAMESPACE" || true
+
     exit 1
+
   fi
 
 done < "$CHANGED_SERVICES_FILE"
