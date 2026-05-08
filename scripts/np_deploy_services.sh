@@ -52,6 +52,12 @@ echo "===== SERVICE MAP CONTENT ====="
 
 cat "$SERVICE_MAP_FILE"
 
+# =====================================================
+# FIX WINDOWS LINE ENDINGS
+# =====================================================
+
+sed -i 's/\r$//' "$SERVICE_MAP_FILE"
+
 echo "===== LOGIN TO OPENSHIFT ====="
 
 TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
